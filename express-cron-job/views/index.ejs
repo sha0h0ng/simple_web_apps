@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Cron Job Scheduler</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        const SUPABASE_URL = '<%= supabaseUrl %>';
+        const SUPABASE_KEY = '<%= supabaseKey %>';
+        const supabaseClient = supabase.createClient(
+          SUPABASE_URL,
+          SUPABASE_KEY
+        );
+
+        async function signUp(event) {
+          event.preventDefault();
+          const email = document.getElementById('signUpEmail').value;
+          const password = document.getElementById('signUpPassword').value;
+          const { error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+          });
+          if (error) {
+            alert('Sign up error: ' + error.message);
+          } else {
+            alert(
+              'Sign up successful! Please check your email to confirm your account.'
+            );
+          }
+        }
+
+        async function signIn(event) {
+          event.preventDefault();
+          const email = document.getElementById('signInEmail').value;
+          const password = document.getElementById('signInPassword').value;
+          const { error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (error) {
+            alert('Sign in error: ' + error.message);
+          } else {
+            window.location.reload();
+          }
+        }
+
+        async function signOut() {
+          const { error } = await supabaseClient.auth.signOut();
+          if (error) {
+            alert('Sign out error: ' + error.message);
+          } else {
+            window.location.reload();
+          }
+        }
+
+        const {
+          data: { user },
+        } = await supabaseClient.auth.getUser();
+        if (user) {
+          document.getElementById('authContainer').style.display = 'none';
+          document.getElementById('appContainer').style.display = 'block';
+        } else {
+          document.getElementById('authContainer').style.display = 'block';
+          document.getElementById('appContainer').style.display = 'none';
+        }
+
+        window.signUp = signUp;
+        window.signIn = signIn;
+        window.signOut = signOut;
+      });
+    </script>
+  </head>
+  <body class="container mt-5">
+    <div id="authContainer" style="display: none">
+      <h1 class="mb-4">Cron Job Scheduler - Sign Up / Sign In</h1>
+      <form id="signUpForm" onsubmit="signUp(event)">
+        <h2>Sign Up</h2>
+        <div class="mb-3">
+          <label for="signUpEmail" class="form-label">Email:</label>
+          <input type="email" id="signUpEmail" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label for="signUpPassword" class="form-label">Password:</label>
+          <input
+            type="password"
+            id="signUpPassword"
+            class="form-control"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Sign Up</button>
+      </form>
+
+      <form id="signInForm" onsubmit="signIn(event)" class="mt-4">
+        <h2>Sign In</h2>
+        <div class="mb-3">
+          <label for="signInEmail" class="form-label">Email:</label>
+          <input type="email" id="signInEmail" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label for="signInPassword" class="form-label">Password:</label>
+          <input
+            type="password"
+            id="signInPassword"
+            class="form-control"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+    </div>
+
+    <div id="appContainer" style="display: none">
+      <button class="btn btn-secondary mb-4" onclick="signOut()">
+        Sign Out
+      </button>
+      <h1 class="mb-4">Cron Job Scheduler</h1>
+      <form action="/schedule" method="POST" class="mb-4">
+        <div class="mb-3">
+          <label for="cronTime" class="form-label">Cron Time:</label>
+          <select
+            id="cronTime"
+            name="cronTime"
+            class="form-select"
+            onchange="showCustomInput(this.value)"
+            required
+          >
+            <option value="* * * * *">Every minute</option>
+            <option value="*/5 * * * *">Every 5 minutes</option>
+            <option value="0 * * * *">Every hour</option>
+            <option value="0 0 * * *">Every day at midnight</option>
+            <option value="0 0 * * 0">Every week on Sunday at midnight</option>
+            <option value="custom">Custom</option>
+          </select>
+          <div id="customCronTimeContainer" class="mt-2" style="display: none">
+            <input
+              type="text"
+              id="customCronTime"
+              name="customCronTime"
+              class="form-control"
+              placeholder="* * * * *"
+              oninput="updateSummary()"
+            />
+          </div>
+        </div>
+        <div class="mb-3" id="cronSummaryContainer" style="display: none">
+          <label for="cronSummary" class="form-label">Cron Summary:</label>
+          <p id="cronSummary"></p>
+        </div>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description:</label>
+          <input
+            type="text"
+            id="description"
+            name="description"
+            class="form-control"
+            placeholder="Job description"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label for="script" class="form-label">Script:</label>
+          <select id="script" name="script" class="form-select" required>
+            <% scripts.forEach(script => { %>
+            <option value="<%= script %>"><%= script %></option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Schedule Job</button>
+      </form>
+
+      <h2>Current Jobs</h2>
+      <ul class="list-group">
+        <% jobs.forEach((job, index) => { %>
+        <li class="list-group-item">
+          <strong>Job <%= index + 1 %>:</strong> <%= job.description %> (Cron:
+          <%= job.cronTime %>, Script: <%= job.script %>)
+          <form
+            action="/cancel/<%= index %>"
+            method="POST"
+            style="display: inline"
+          >
+            <button type="submit" class="btn btn-danger btn-sm float-end">
+              Cancel Job
+            </button>
+          </form>
+        </li>
+        <% }); %>
+      </ul>
+    </div>
+  </body>
+</html>
