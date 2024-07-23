@@ -80,8 +80,6 @@ cron-job-scheduler/
 
 This project is licensed under the MIT License.
 
-````
-
 ### `config.template.yml`
 
 This is the template configuration file that developers need to rename and update with their Supabase details.
@@ -90,7 +88,7 @@ This is the template configuration file that developers need to rename and updat
 supabase:
   url: 'YOUR_SUPABASE_URL'
   key: 'YOUR_SUPABASE_KEY'
-````
+```
 
 ### Adding `.gitignore` Entry for `config.yml`
 
